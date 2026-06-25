@@ -1,11 +1,32 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #include "Graphics.h"
-#include <iostream>
-#include <fstream>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include <sstream>
+#include <fstream>
 
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#define ASSERT(x) if (!(x)) __debugbreak();
+
+#define GLCall(x) GLClearErrors();\
+	x;\
+	ASSERT(GLLogError(#x, __FILE__, __LINE__))
+
+static void GLClearErrors()
+{
+    while (glGetError() != GL_NO_ERROR);
+}
+
+
+static bool GLLogError(const char* function, const char* file, int line)
+{
+    while (GLenum error = glGetError())
+    {
+        std::cout << "[OpenGL Error] (" << error << "): " << function << " " << file << ":" << line << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
 Graphics::Graphics()
 {
@@ -16,137 +37,197 @@ Graphics::~Graphics()
 {
 }
 
+void Graphics::Render()
+{
+    PreDraw();
+    ClearScreen();
+    Draw();
+}
+
 void Graphics::Setup()
 {
     InitWindow();
 
-    GLuint vs = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
-    GLuint fs = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
-    CreateProgram(vs, fs);
+    GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
+    GLuint vertexShader = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
+    CreateProgram(vertexShader, fragShader);
 
-    LoadMesh("./assets/suzanne.obj");
+    Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
+    meshes.push_back(suzanne);
+    if (suzanne)
+    {
 
-    std::cout << "Vertices: " << mesh.vertices.size() << std::endl;
-    std::cout << "Indices: " << mesh.indices.size() << std::endl;
+        std::cout << "Suzanne: " << suzanne->vertices.size();
+    }
 
     CreateBuffers();
-    UploadMesh(mesh);
-
     SetMVP();
+    LoadTexture("./assets/pic.jpg", baseTextureID);
+    LoadTexture("./assets/overlay.png", overlayTextureID);
 }
 
-void Graphics::InitWindow()
-{
-    SDL_Init(SDL_INIT_VIDEO);
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-
-    window = SDL_CreateWindow("OBJ Viewer",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
-        SDL_WINDOW_OPENGL);
-
-    context = SDL_GL_CreateContext(window);
-
-    gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress);
-
-    glEnable(GL_DEPTH_TEST);
-
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-}
-
-GLuint Graphics::CreateShader(std::string path, GLenum type)
-{
-    std::string src = LoadShaderFile(path);
-    const char* cstr = src.c_str();
-
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &cstr, nullptr);
-    glCompileShader(shader);
-
-    return shader;
-}
-
-void Graphics::CreateProgram(GLuint vs, GLuint fs)
+void Graphics::CreateProgram(GLuint vertexShader, GLuint fragShader)
 {
     program = glCreateProgram();
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragShader);
     glLinkProgram(program);
 }
 
-std::string Graphics::LoadShaderFile(std::string path)
+GLuint Graphics::CreateShader(std::string shaderPath, GLuint shaderType)
 {
-    std::ifstream file(path);
-    std::stringstream ss;
-    ss << file.rdbuf();
-    return ss.str();
+    std::string shaderSource = LoadShaderFile(shaderPath);
+    GLuint shader = glCreateShader(shaderType);
+    const char* shaderSourceChar = shaderSource.c_str();
+    glShaderSource(shader, 1, &shaderSourceChar, nullptr);
+    glCompileShader(shader);
+    return shader;
+}
+
+std::string Graphics::LoadShaderFile(std::string shaderPath)
+{
+    std::ifstream shaderFile(shaderPath);
+    if (!shaderFile.is_open()) {
+        std::cerr << "Could not open shader file: " << shaderPath << std::endl;
+        return std::string("");
+    }
+
+    std::string shaderSource((std::istreambuf_iterator<char>(shaderFile)), std::istreambuf_iterator<char>());
+
+    shaderFile.close();
+
+    return shaderSource;
 }
 
 void Graphics::SetMVP()
 {
-    model = glm::mat4(1.0f);
+    // MODEL
+    model = glm::mat4x4(1.f);
+    glm::translate(model, glm::vec3(0.f, 0.f, 0.f));
+    glm::rotate(model, 0.f, glm::vec3(1));
+    glm::scale(model, glm::vec3(1.f));
 
-    view = glm::lookAt(
-        glm::vec3(0, 0, 5),  // move camera back
-        glm::vec3(0, 0, 0),
-        glm::vec3(0, 1, 0)
+    // VIEW
+    glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
+    glm::vec3 center = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec3 upVector = glm::vec3(0.f, 1.f, 0.f);
+
+    view = glm::lookAt(eye, center, upVector);
+
+    // PROJECTION
+    proj = glm::perspective((float)glm::radians(45.f), float(WINDOW_WIDTH) / float(WINDOW_HEIGHT), 0.1f, 100.f);
+
+}
+
+void Graphics::InitWindow()
+{
+    if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    {
+        std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+    window = SDL_CreateWindow(
+        "OpenGL + SDL + GLAD - Triangle with MVP",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
     );
 
-    proj = glm::perspective(
-        glm::radians(45.0f),
-        (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, // FIXED
-        0.1f,
-        100.0f
-    );
+    if (!window)
+    {
+        std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return;
+    }
+
+    glContext = SDL_GL_CreateContext(window);
+
+    if (!glContext)
+    {
+        std::cerr << "SDL_GL_CreateContext Error: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return;
+    }
+
+    SDL_GL_SetSwapInterval(1);
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+    {
+        std::cerr << "Failed to initialize GLAD!" << std::endl;
+        SDL_GL_DeleteContext(glContext);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return;
+    }
+
+
+    glEnable(GL_DEPTH_TEST);
+
+    glDisable(GL_CULL_FACE);
+
+    glEnable(GL_BLEND);
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glViewport(GLint(0), GLint(0), GLint(WINDOW_WIDTH), GLint(WINDOW_HEIGHT));
+
+    // glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
 }
 
 void Graphics::CreateBuffers()
 {
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &IBO);
+    CreateVBO();
+    CreateVAO();
+    CreateIBO();
+}
 
+void Graphics::CreateVBO()
+{
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    Mesh* mesh = meshes[0];
+    glBufferData(GL_ARRAY_BUFFER, mesh->vertices.size() * sizeof(Vertex), mesh->vertices.data(), GL_STATIC_DRAW);
+}
+
+void Graphics::CreateVAO()
+{
+    glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
 }
 
-void Graphics::UploadMesh(const Mesh& m)
+void Graphics::CreateIBO()
 {
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER,
-        m.vertices.size() * sizeof(Vertex),
-        m.vertices.data(),
-        GL_STATIC_DRAW);
-
+    glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-        m.indices.size() * sizeof(unsigned int),
-        m.indices.data(),
-        GL_STATIC_DRAW);
+    Mesh* mesh = meshes[0];
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indices.size() * sizeof(int), mesh->indices.data(), GL_STATIC_DRAW);
 }
 
-void Graphics::LoadMesh(const std::string& path)
+Mesh* Graphics::LoadMesh(std::string path)
 {
+    Mesh* mesh = new Mesh();
+
     std::ifstream file(path);
     if (!file)
     {
         std::cout << "Failed to open OBJ\n";
-        return;
+        return nullptr;
     }
 
     std::vector<glm::vec3> positions;
@@ -218,47 +299,138 @@ void Graphics::LoadMesh(const std::string& path)
                 else
                     vert.normal = glm::vec3(0, 0, 1);
 
-                mesh.vertices.push_back(vert);
-                mesh.indices.push_back(mesh.vertices.size() - 1);
+                mesh->vertices.push_back(vert);
+                mesh->indices.push_back(mesh->vertices.size() - 1);
             }
         }
     }
+
+    for (int i : mesh->indices)
+        std::cout << i << std::endl;
+
+    return mesh;
 }
 
 void Graphics::PreDraw()
 {
-    glUseProgram(program); 
 
-    glUniformMatrix4fv(glGetUniformLocation(program, "model"),
-        1, GL_FALSE, glm::value_ptr(model));
+    // SET TEXTURES
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, baseTextureID);
+    GLuint diffuseTextureLoc = glGetUniformLocation(program, "diffuse");
 
-    glUniformMatrix4fv(glGetUniformLocation(program, "view"),
-        1, GL_FALSE, glm::value_ptr(view));
+    if (diffuseTextureLoc != -1)
+        glUniform1i(diffuseTextureLoc, 0);
 
-    glUniformMatrix4fv(glGetUniformLocation(program, "projection"),
-        1, GL_FALSE, glm::value_ptr(proj));
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, overlayTextureID);
+    GLuint overlayTextureLoc = glGetUniformLocation(program, "overlay");
+
+    if (overlayTextureLoc != -1)
+        glUniform1i(overlayTextureLoc, 1);
+
+    // SET MODEL
+    GLuint modelLoc = glGetUniformLocation(program, "model");
+    if (modelLoc != -1)
+    {
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    }
+
+    // SET VIEW
+    GLuint viewLoc = glGetUniformLocation(program, "view");
+    if (viewLoc != -1)
+    {
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    }
+
+    // SET PROJECTION
+    GLuint projLoc = glGetUniformLocation(program, "projection");
+    if (projLoc != -1)
+    {
+        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    }
+
+    // SET TINT
+    GLuint tintLoc = glGetUniformLocation(program, "tint");
+    if (tintLoc != -1)
+        glUniform3fv(tintLoc, 1, glm::value_ptr(glm::vec3(0.7, 1, 0.2f)));
+
+    GLuint resolutionLoc = glGetUniformLocation(program, "resolution");
+    if (resolutionLoc != -1)
+        glUniform2f(resolutionLoc, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    GLuint timeLoc = glGetUniformLocation(program, "currentTime");
+    if (timeLoc != -1)
+        glUniform1f(timeLoc, currentTime);
+}
+
+void Graphics::ClearScreen()
+{
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 }
 
 void Graphics::Draw()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(program);
 
     glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
-    glDrawElements(GL_TRIANGLES,
-        mesh.indices.size(),
-        GL_UNSIGNED_INT,
-        0);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, baseTextureID);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, overlayTextureID);
+
+    glDrawElements(GL_TRIANGLES, meshes[0]->indices.size(), GL_UNSIGNED_INT, 0);
+    //glDrawArrays(GL_TRIANGLES, 0, meshes[0]->vertices.size());
 
     SDL_GL_SwapWindow(window);
 }
 
-void Graphics::Render()
+void Graphics::ReadTextureFile(const char* path, unsigned char*& data, GLuint& colorFormat, int& width, int& height)
 {
-    PreDraw();
-    Draw();
+    int channels;
+    data = stbi_load(path, &width, &height, &channels, 0);
+
+    if (!data)
+    {
+        std::cout << "Texture Data was not found!";
+        return;
+    }
+    colorFormat = channels == 4 ? GL_RGBA : GL_RGB;
+}
+
+void Graphics::LoadTexture(const char* path, GLuint& textureID)
+{
+    int textureWidth, textureHeight;
+    GLuint colorFormat;
+    unsigned char* data;
+    ReadTextureFile(path, data, colorFormat, textureWidth, textureHeight);
+
+
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);*/
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, colorFormat, textureWidth, textureHeight, 0, colorFormat, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(data);
 }
 
 void Graphics::Update(float dt)
 {
+    currentTime += dt;
 }
