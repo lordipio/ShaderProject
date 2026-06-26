@@ -78,9 +78,9 @@ private:
 	void CreateIBO();
 
 	std::vector<float> globalVertices = { -1,  1, 0, 0, 1, 1, 0, 0,
-									 1,  1, 0, 1, 1, 0, 1, 0,
-									 1, -1, 0, 1, 0, 0, 0, 1,
-									-1, -1, 0, 0, 0, 0, 1, 1 };
+										   1,  1, 0, 1, 1, 0, 1, 0,
+										   1, -1, 0, 1, 0, 0, 0, 1,
+										  -1, -1, 0, 0, 0, 0, 1, 1 };
 
 	std::vector<int> indices = { 0, 3, 1,
 								 1, 3, 2 };
@@ -98,6 +98,8 @@ private:
 	float currentTime;
 
 	Mesh* LoadMesh(std::string path);
+
 	std::vector<Mesh*> meshes;
 
+	Mesh* integrated_mesh;
 };

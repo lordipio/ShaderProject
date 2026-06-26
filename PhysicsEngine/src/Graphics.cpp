@@ -48,18 +48,16 @@ void Graphics::Setup()
 {
     InitWindow();
 
+    integrated_mesh = new Mesh();
+
     GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
     GLuint vertexShader = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
     CreateProgram(vertexShader, fragShader);
 
-    Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
-    meshes.push_back(suzanne);
-    if (suzanne)
-    {
+    // Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
+    Mesh* skybox = LoadMesh("./assets/skybox/skybox.obj");
 
-        std::cout << "Suzanne: " << suzanne->vertices.size();
-    }
-
+    
     CreateBuffers();
     SetMVP();
     LoadTexture("./assets/pic.jpg", baseTextureID);
@@ -103,9 +101,9 @@ void Graphics::SetMVP()
 {
     // MODEL
     model = glm::mat4x4(1.f);
-    glm::translate(model, glm::vec3(0.f, 0.f, 0.f));
-    glm::rotate(model, 0.f, glm::vec3(1));
-    glm::scale(model, glm::vec3(1.f));
+    model = glm::translate(model, glm::vec3(0.f, 0.f, 0.f));
+    model = glm::rotate(model, 40.f, glm::vec3(0, 1, 0));
+    model = glm::scale(model, glm::vec3(1.f));
 
     // VIEW
     glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
@@ -116,7 +114,6 @@ void Graphics::SetMVP()
 
     // PROJECTION
     proj = glm::perspective((float)glm::radians(45.f), float(WINDOW_WIDTH) / float(WINDOW_HEIGHT), 0.1f, 100.f);
-
 }
 
 void Graphics::InitWindow()
@@ -193,7 +190,7 @@ void Graphics::CreateVBO()
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     Mesh* mesh = meshes[0];
-    glBufferData(GL_ARRAY_BUFFER, mesh->vertices.size() * sizeof(Vertex), mesh->vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, integrated_mesh->vertices.size() * sizeof(Vertex), integrated_mesh->vertices.data(), GL_STATIC_DRAW);
 }
 
 void Graphics::CreateVAO()
@@ -216,7 +213,7 @@ void Graphics::CreateIBO()
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     Mesh* mesh = meshes[0];
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indices.size() * sizeof(int), mesh->indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, integrated_mesh->indices.size() * sizeof(int), integrated_mesh->indices.data(), GL_STATIC_DRAW);
 }
 
 Mesh* Graphics::LoadMesh(std::string path)
@@ -305,8 +302,19 @@ Mesh* Graphics::LoadMesh(std::string path)
         }
     }
 
-    for (int i : mesh->indices)
-        std::cout << i << std::endl;
+    // for (int i : mesh->indices)
+        // std::cout << i << std::endl;
+
+    meshes.push_back(mesh);
+
+    int integrated_mesh_max_index = integrated_mesh->indices.size();
+    int current_mesh_max_index = mesh->indices.size();
+
+    for (int i = 0; i < current_mesh_max_index; i++)
+        mesh->indices[i] += integrated_mesh_max_index;
+
+    integrated_mesh->vertices.insert(integrated_mesh->vertices.end(), mesh->vertices.begin(), mesh->vertices.end());
+    integrated_mesh->indices.insert(integrated_mesh->indices.end(), mesh->indices.begin(), mesh->indices.end());
 
     return mesh;
 }
@@ -386,7 +394,7 @@ void Graphics::Draw()
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, overlayTextureID);
 
-    glDrawElements(GL_TRIANGLES, meshes[0]->indices.size(), GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, integrated_mesh->indices.size(), GL_UNSIGNED_INT, 0);
     //glDrawArrays(GL_TRIANGLES, 0, meshes[0]->vertices.size());
 
     SDL_GL_SwapWindow(window);
