@@ -4,6 +4,7 @@
 #include "stb_image.h"
 #include <sstream>
 #include <fstream>
+#include "Mesh.h"
 
 #define ASSERT(x) if (!(x)) __debugbreak();
 
@@ -50,64 +51,44 @@ void Graphics::Setup()
 
     integrated_mesh = new Mesh();
 
-    GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
-    GLuint vertexShader = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
-    CreateProgram(vertexShader, fragShader);
+    //GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
+    // GLuint vertexShader = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
+    // CreateProgram(vertexShader, fragShader);
 
     // Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
     Mesh* skybox = LoadMesh("./assets/skybox/skybox.obj");
+    skybox->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
+    skybox->SetMaterial(new Material("./src/shaders/skybox.vert", "./src/shaders/skybox.frag"));
 
+
+    Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
+    suzanne->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
+    suzanne->SetMaterial(new Material("./src/shaders/skybox.vert", "./src/shaders/skybox.frag"));
+
+    // skybox->shader = new Shader("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl");
+    // skybox->shader = new Shader("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl");
     
     CreateBuffers();
     SetMVP();
-    LoadTexture("./assets/pic.jpg", baseTextureID);
-    LoadTexture("./assets/overlay.png", overlayTextureID);
+
 }
 
-void Graphics::CreateProgram(GLuint vertexShader, GLuint fragShader)
-{
-    program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragShader);
-    glLinkProgram(program);
-}
-
-GLuint Graphics::CreateShader(std::string shaderPath, GLuint shaderType)
-{
-    std::string shaderSource = LoadShaderFile(shaderPath);
-    GLuint shader = glCreateShader(shaderType);
-    const char* shaderSourceChar = shaderSource.c_str();
-    glShaderSource(shader, 1, &shaderSourceChar, nullptr);
-    glCompileShader(shader);
-    return shader;
-}
-
-std::string Graphics::LoadShaderFile(std::string shaderPath)
-{
-    std::ifstream shaderFile(shaderPath);
-    if (!shaderFile.is_open()) {
-        std::cerr << "Could not open shader file: " << shaderPath << std::endl;
-        return std::string("");
-    }
-
-    std::string shaderSource((std::istreambuf_iterator<char>(shaderFile)), std::istreambuf_iterator<char>());
-
-    shaderFile.close();
-
-    return shaderSource;
-}
 
 void Graphics::SetMVP()
 {
     // MODEL
     model = glm::mat4x4(1.f);
-    model = glm::translate(model, glm::vec3(0.f, 0.f, 0.f));
-    model = glm::rotate(model, 40.f, glm::vec3(0, 1, 0));
+    model = glm::translate(model, glm::vec3(0.f, 0.f, -10.f));
+    model = glm::rotate(model, 0.f, glm::vec3(0, 1, 0));
     model = glm::scale(model, glm::vec3(1.f));
 
+    model2 = glm::mat4x4(1.f);
+    model2 = glm::translate(model2, glm::vec3(1.f, 1.f, -10.f));
+    model2 = glm::rotate(model2, 0.f, glm::vec3(0, 1, 0));
+    model2 = glm::scale(model2, glm::vec3(1.f));
     // VIEW
-    glm::vec3 eye = glm::vec3(0.f, 0.f, 10.f);
-    glm::vec3 center = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec3 eye = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec3 center = glm::vec3(0.f, 0.f, -1.f);
     glm::vec3 upVector = glm::vec3(0.f, 1.f, 0.f);
 
     view = glm::lookAt(eye, center, upVector);
@@ -164,18 +145,11 @@ void Graphics::InitWindow()
         return;
     }
 
-
     glEnable(GL_DEPTH_TEST);
-
     glDisable(GL_CULL_FACE);
-
     glEnable(GL_BLEND);
-
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     glViewport(GLint(0), GLint(0), GLint(WINDOW_WIDTH), GLint(WINDOW_HEIGHT));
-
-    // glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
 }
 
 void Graphics::CreateBuffers()
@@ -189,7 +163,6 @@ void Graphics::CreateVBO()
 {
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    Mesh* mesh = meshes[0];
     glBufferData(GL_ARRAY_BUFFER, integrated_mesh->vertices.size() * sizeof(Vertex), integrated_mesh->vertices.data(), GL_STATIC_DRAW);
 }
 
@@ -212,7 +185,6 @@ void Graphics::CreateIBO()
 {
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    Mesh* mesh = meshes[0];
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, integrated_mesh->indices.size() * sizeof(int), integrated_mesh->indices.data(), GL_STATIC_DRAW);
 }
 
@@ -302,9 +274,6 @@ Mesh* Graphics::LoadMesh(std::string path)
         }
     }
 
-    // for (int i : mesh->indices)
-        // std::cout << i << std::endl;
-
     meshes.push_back(mesh);
 
     int integrated_mesh_max_index = integrated_mesh->indices.size();
@@ -319,124 +288,68 @@ Mesh* Graphics::LoadMesh(std::string path)
     return mesh;
 }
 
+// Send Uniform Data (except textures)
 void Graphics::PreDraw()
 {
-
+    Shader* meshShader;
+    int i = 0;
     // SET TEXTURES
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, baseTextureID);
-    GLuint diffuseTextureLoc = glGetUniformLocation(program, "diffuse");
-
-    if (diffuseTextureLoc != -1)
-        glUniform1i(diffuseTextureLoc, 0);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, overlayTextureID);
-    GLuint overlayTextureLoc = glGetUniformLocation(program, "overlay");
-
-    if (overlayTextureLoc != -1)
-        glUniform1i(overlayTextureLoc, 1);
-
-    // SET MODEL
-    GLuint modelLoc = glGetUniformLocation(program, "model");
-    if (modelLoc != -1)
+    for (Mesh* mesh : meshes)
     {
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        meshShader = mesh->GetMaterial()->GetShader();
+        meshShader->Use();
+
+        if (i == 0)
+            meshShader->Set4x4FloatMatrix("model", model);
+        else
+            meshShader->Set4x4FloatMatrix("model", model2);
+
+        meshShader->Set4x4FloatMatrix("view", view);
+
+        meshShader->Set4x4FloatMatrix("projection", proj);
+
+        meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1, 0.2f));
+
+        meshShader->Set2FloatVector("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+
+        meshShader->SetFloat("currentTime", currentTime);
+
+        i++;
     }
-
-    // SET VIEW
-    GLuint viewLoc = glGetUniformLocation(program, "view");
-    if (viewLoc != -1)
-    {
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    }
-
-    // SET PROJECTION
-    GLuint projLoc = glGetUniformLocation(program, "projection");
-    if (projLoc != -1)
-    {
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(proj));
-    }
-
-    // SET TINT
-    GLuint tintLoc = glGetUniformLocation(program, "tint");
-    if (tintLoc != -1)
-        glUniform3fv(tintLoc, 1, glm::value_ptr(glm::vec3(0.7, 1, 0.2f)));
-
-    GLuint resolutionLoc = glGetUniformLocation(program, "resolution");
-    if (resolutionLoc != -1)
-        glUniform2f(resolutionLoc, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    GLuint timeLoc = glGetUniformLocation(program, "currentTime");
-    if (timeLoc != -1)
-        glUniform1f(timeLoc, currentTime);
+    
 }
 
 void Graphics::ClearScreen()
 {
+
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
 }
 
 void Graphics::Draw()
 {
-    glUseProgram(program);
+    int lastIndex = 0;
+    int indicesSize = 0;
+    for (Mesh* mesh : meshes)
+    {
+        mesh->GetMaterial()->GetShader()->Use();
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
 
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, baseTextureID);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, overlayTextureID);
-
-    glDrawElements(GL_TRIANGLES, integrated_mesh->indices.size(), GL_UNSIGNED_INT, 0);
-    //glDrawArrays(GL_TRIANGLES, 0, meshes[0]->vertices.size());
+        mesh->GetMaterial()->BindTextures();
+        indicesSize = mesh->indices.size();
+        glDrawElements(GL_TRIANGLES, indicesSize, GL_UNSIGNED_INT, (void*)(lastIndex * sizeof(unsigned int)));
+        lastIndex += mesh->indices.size();
+    }
 
     SDL_GL_SwapWindow(window);
 }
 
-void Graphics::ReadTextureFile(const char* path, unsigned char*& data, GLuint& colorFormat, int& width, int& height)
-{
-    int channels;
-    data = stbi_load(path, &width, &height, &channels, 0);
-
-    if (!data)
-    {
-        std::cout << "Texture Data was not found!";
-        return;
-    }
-    colorFormat = channels == 4 ? GL_RGBA : GL_RGB;
-}
-
-void Graphics::LoadTexture(const char* path, GLuint& textureID)
-{
-    int textureWidth, textureHeight;
-    GLuint colorFormat;
-    unsigned char* data;
-    ReadTextureFile(path, data, colorFormat, textureWidth, textureHeight);
-
-
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-
-    /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);*/
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, colorFormat, textureWidth, textureHeight, 0, colorFormat, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    stbi_image_free(data);
-}
 
 void Graphics::Update(float dt)
 {

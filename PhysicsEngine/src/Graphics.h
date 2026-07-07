@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include "Shader.h"
 #include <glad/glad.h>
 #include <iostream>
 #include "glm/vec4.hpp"
@@ -17,29 +18,30 @@
 
 
 
-typedef struct FaceIndices
-{
-	struct FaceIndex
-	{
-		glm::ivec3 vertexIndex;
-	};
-
-	FaceIndex faceIndices[3];
-};
-
-typedef struct Vertex
-{
-	glm::vec3 pos;
-	glm::vec2 uv;
-	glm::vec3 normal;
-};
-
-struct Mesh
-{
-	std::vector<Vertex> vertices;
-	std::vector<int> indices;
-};
-
+//typedef struct FaceIndices
+//{
+//	struct FaceIndex
+//	{
+//		glm::ivec3 vertexIndex;
+//	};
+//
+//	FaceIndex faceIndices[3];
+//};
+//
+//typedef struct Vertex
+//{
+//	glm::vec3 pos;
+//	glm::vec2 uv;
+//	glm::vec3 normal;
+//};
+//
+//struct Mesh
+//{
+//	std::vector<Vertex> vertices;
+//	std::vector<int> indices;
+//	Shader* shader;
+//};
+class Mesh;
 class Graphics
 {
 public:
@@ -56,16 +58,13 @@ private:
 	SDL_GLContext glContext;
 
 	void SetMVP();
-	std::string LoadShaderFile(std::string shaderPath);
-	void CreateProgram(GLuint vertexShader, GLuint fragShader);
-	GLuint CreateShader(std::string shaderPath, GLuint shaderType);
-	GLuint program;
 
 	GLuint VAO;
 	GLuint VBO;
 	GLuint IBO;
 
 	glm::mat4x4 model;
+	glm::mat4x4 model2;
 	glm::mat4x4 view;
 	glm::mat4x4 proj;
 
@@ -77,23 +76,9 @@ private:
 	void CreateVAO();
 	void CreateIBO();
 
-	std::vector<float> globalVertices = { -1,  1, 0, 0, 1, 1, 0, 0,
-										   1,  1, 0, 1, 1, 0, 1, 0,
-										   1, -1, 0, 1, 0, 0, 0, 1,
-										  -1, -1, 0, 0, 0, 0, 1, 1 };
-
-	std::vector<int> indices = { 0, 3, 1,
-								 1, 3, 2 };
-
 	void PreDraw();
 	void ClearScreen();
 	void Draw();
-
-	void ReadTextureFile(const char* path, unsigned char*& data, GLuint& colorFormat, int& width, int& height);
-	void LoadTexture(const char* path, GLuint& textureID);
-
-	GLuint baseTextureID;
-	GLuint overlayTextureID;
 
 	float currentTime;
 
@@ -102,4 +87,6 @@ private:
 	std::vector<Mesh*> meshes;
 
 	Mesh* integrated_mesh;
+
+
 };
