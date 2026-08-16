@@ -9,10 +9,15 @@ attribute vec3 vertexNormal;
 varying vec2 vUV;
 varying vec3 vVertexNormal;
 
+layout(location = 1) out vec3 textureDir;
+
 void main()
 {
+    
     vec4 localPos = vec4(pos, 1);
-    gl_Position = projection * view * model * localPos;
+    vec4 finalPos = projection * view * model * localPos;
+    gl_Position = finalPos;
     vUV = uv;
     vVertexNormal = vertexNormal;
+    textureDir = vec3(pos);
 }

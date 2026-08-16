@@ -1,4 +1,4 @@
-
+#include "Graphics.h"
 class Application
 {
 public:
@@ -13,7 +13,12 @@ public:
 	const bool GetIsRunning() { return isRunning; };
 	float currentFrameTime;
 	float previousFrameTime;
+	float deltaTime;
+	glm::vec2 windowCenter;
 private:
 	bool isRunning = true;
 	class Graphics* graphics;
+	int currentMouseX, currentMouseY;
+	int prevMouseX, prevMouseY;
+
 };

@@ -12,9 +12,14 @@ public:
 
 	void AddTexture(std::string name, GLuint textureID);
 	void AddTexture(std::string name, std::string textureAddress);
-	
+
+	void AddCubemapTexture(std::string name, GLuint textureID);
+	void AddCubemapTexture(std::string name, std::string textureAddress[6]);
+
 	void BindTextures();
 	static void LoadTexture(const char* path, GLuint& textureID);
+	static void LoadCubemapTexture(std::string texturesAddress[6], GLuint& textureID);
+
 
 	std::unordered_map <std::string, GLuint> GetTextureNameID() { return texturesNameID; }
 

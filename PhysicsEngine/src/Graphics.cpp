@@ -4,6 +4,7 @@
 #include "stb_image.h"
 #include <sstream>
 #include <fstream>
+#include "glm/gtx/rotate_vector.hpp"
 #include "Mesh.h"
 
 #define ASSERT(x) if (!(x)) __debugbreak();
@@ -51,26 +52,27 @@ void Graphics::Setup()
 
     integrated_mesh = new Mesh();
 
-    //GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
+    // GLuint fragShader = CreateShader("./src/shaders/fragment_shader.glsl", GL_FRAGMENT_SHADER);
     // GLuint vertexShader = CreateShader("./src/shaders/vertex_shader.glsl", GL_VERTEX_SHADER);
     // CreateProgram(vertexShader, fragShader);
 
-    // Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
-    Mesh* skybox = LoadMesh("./assets/skybox/skybox.obj");
-    skybox->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
-    skybox->SetMaterial(new Material("./src/shaders/skybox.vert", "./src/shaders/skybox.frag"));
+    std::string skyboxTexturesAddress[6] = { "./assets/skybox/right.png",
+                                            "./assets/skybox/left.png",
+                                            "./assets/skybox/up_rotated.png",
+                                            "./assets/skybox/down.png",
+                                            "./assets/skybox/back.png",
+                                            "./assets/skybox/front.png" };
 
+    Mesh* Skybox = LoadMesh("./assets/Skybox/Skybox.obj");
+    Skybox->GetMaterial()->AddCubemapTexture("cubemap", skyboxTexturesAddress);
+    Skybox->SetMaterial(new Material("./src/shaders/Skybox.vert", "./src/shaders/Skybox.frag"));
 
     Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
     suzanne->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
-    suzanne->SetMaterial(new Material("./src/shaders/skybox.vert", "./src/shaders/skybox.frag"));
+    suzanne->SetMaterial(new Material("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl"));
 
-    // skybox->shader = new Shader("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl");
-    // skybox->shader = new Shader("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl");
-    
     CreateBuffers();
     SetMVP();
-
 }
 
 
@@ -78,7 +80,7 @@ void Graphics::SetMVP()
 {
     // MODEL
     model = glm::mat4x4(1.f);
-    model = glm::translate(model, glm::vec3(0.f, 0.f, -10.f));
+    model = glm::translate(model, glm::vec3(0.f, 0.f, -0.f));
     model = glm::rotate(model, 0.f, glm::vec3(0, 1, 0));
     model = glm::scale(model, glm::vec3(1.f));
 
@@ -92,6 +94,7 @@ void Graphics::SetMVP()
     glm::vec3 upVector = glm::vec3(0.f, 1.f, 0.f);
 
     view = glm::lookAt(eye, center, upVector);
+    skyboxView = glm::mat4(glm::mat3(glm::lookAt(eye, center, upVector)));
 
     // PROJECTION
     proj = glm::perspective((float)glm::radians(45.f), float(WINDOW_WIDTH) / float(WINDOW_HEIGHT), 0.1f, 100.f);
@@ -293,22 +296,27 @@ void Graphics::PreDraw()
 {
     Shader* meshShader;
     int i = 0;
-    // SET TEXTURES
+
     for (Mesh* mesh : meshes)
     {
         meshShader = mesh->GetMaterial()->GetShader();
         meshShader->Use();
 
         if (i == 0)
+        {
+            meshShader->Set4x4FloatMatrix("view", skyboxView);
             meshShader->Set4x4FloatMatrix("model", model);
+        }
         else
+        {
+            meshShader->Set4x4FloatMatrix("view", view);
             meshShader->Set4x4FloatMatrix("model", model2);
+        }
 
-        meshShader->Set4x4FloatMatrix("view", view);
 
         meshShader->Set4x4FloatMatrix("projection", proj);
 
-        meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1, 0.2f));
+        meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1.f, 0.2f));
 
         meshShader->Set2FloatVector("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
 
@@ -321,7 +329,6 @@ void Graphics::PreDraw()
 
 void Graphics::ClearScreen()
 {
-
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
 }
@@ -330,8 +337,16 @@ void Graphics::Draw()
 {
     int lastIndex = 0;
     int indicesSize = 0;
+    int index = 0;
     for (Mesh* mesh : meshes)
     {
+        // this is for skybox
+        if (index == 0)
+            glDepthMask(GL_FALSE);
+        
+        else
+            glDepthMask(GL_TRUE);
+        
         mesh->GetMaterial()->GetShader()->Use();
         glBindVertexArray(VAO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -345,6 +360,7 @@ void Graphics::Draw()
         indicesSize = mesh->indices.size();
         glDrawElements(GL_TRIANGLES, indicesSize, GL_UNSIGNED_INT, (void*)(lastIndex * sizeof(unsigned int)));
         lastIndex += mesh->indices.size();
+        index++;
     }
 
     SDL_GL_SwapWindow(window);
@@ -354,4 +370,75 @@ void Graphics::Draw()
 void Graphics::Update(float dt)
 {
     currentTime += dt;
+    deltaTime = dt;
+    glm::vec3 eye = cameraPos;
+    glm::vec3 center = lookDirection + cameraPos;
+    glm::vec3 upVector = glm::vec3(0.f, 1.f, 0.f);
+
+    view = glm::lookAt(eye, center, upVector);
+    skyboxView = glm::mat4(glm::mat3(glm::lookAt(eye, center, upVector)));
+}
+
+
+void Graphics::CameraMoveForward() 
+{
+    cameraPos += glm::normalize(lookDirection) * cameraMovementSpeed * deltaTime;
+}
+void Graphics::CameraMoveBackward()
+{
+    cameraPos -= glm::normalize(lookDirection) * cameraMovementSpeed * deltaTime;
+}
+void Graphics::CameraMoveLeft()
+{
+    cameraPos -=  glm::normalize((glm::cross(lookDirection, worldUp))) * cameraMovementSpeed * deltaTime ;
+}
+void Graphics::CameraMoveRight()
+{
+    cameraPos += glm::normalize((glm::cross(lookDirection, worldUp))) * cameraMovementSpeed * deltaTime;
+}
+void Graphics::CameraMoveUp()
+{
+    cameraPos += glm::vec3(0, 1, 0) * cameraMovementSpeed * deltaTime;
+
+}
+void Graphics::CameraMoveDown()
+{
+    cameraPos -= glm::vec3(0, 1, 0) * cameraMovementSpeed * deltaTime;
+}
+
+
+
+void Graphics::CameraAddRotation(glm::vec2 direction)
+{
+    // should clamp the pitch between -89 to 89
+    lookDirection =  glm::rotate(lookDirection, -direction.x * cameraRotationSpeed * deltaTime, worldUp);
+    lookDirection =  glm::rotate(lookDirection, -direction.y * cameraRotationSpeed * deltaTime, glm::cross(lookDirection, worldUp));
+}
+
+
+void Graphics::ProcessInput(const Uint8* keyboardState, float dt)
+{
+    if (keyboardState[SDL_SCANCODE_W])
+        CameraMoveForward();
+
+    if (keyboardState[SDL_SCANCODE_S])
+        CameraMoveBackward();
+
+    if (keyboardState[SDL_SCANCODE_A])
+        CameraMoveLeft();
+
+    if (keyboardState[SDL_SCANCODE_D])
+        CameraMoveRight();
+
+    if (keyboardState[SDL_SCANCODE_Q])
+        CameraMoveDown();
+
+    if (keyboardState[SDL_SCANCODE_E])
+        CameraMoveUp();
+}
+
+void LoadSkyBox()
+{
+    // Load Textures
+    
 }

@@ -11,7 +11,6 @@ typedef struct Vertex
 
 class Mesh
 {
-
 public:
 	Mesh();
 	// ADD DRAW HERE LATER //

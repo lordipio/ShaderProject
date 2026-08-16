@@ -18,6 +18,20 @@ void Material::AddTexture(std::string name, std::string textureAddress)
     texturesNameID.emplace(name, texID);
 }
 
+
+void Material::AddCubemapTexture(std::string name, GLuint textureID)
+{
+    texturesNameID.emplace(name, textureID);
+}
+
+
+void Material::AddCubemapTexture(std::string name, std::string texturesAddress[6])
+{
+    GLuint texID;
+    LoadCubemapTexture(texturesAddress, texID);
+    texturesNameID.emplace(name, texID);
+}
+
 void Material::BindTextures()
 {
 	int texMapIndex = 0;
@@ -55,6 +69,32 @@ void Material::LoadTexture(const char* path, GLuint& textureID)
     stbi_image_free(data);
 }
 
+void Material::LoadCubemapTexture(std::string texturesAddress[6], GLuint& textureID)
+{
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    const char* path;
+    int textureWidth, textureHeight;
+    GLuint colorFormat;
+    unsigned char* data;
+    for (int i = 0; i < 6; i++)
+    {
+        path = texturesAddress[i].c_str();
+        ReadTextureFile(path, data, colorFormat, textureWidth, textureHeight);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, colorFormat, textureWidth, textureHeight, 0, colorFormat, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+}
 
 void Material::ReadTextureFile(const char* path, unsigned char*& data, GLuint& colorFormat, int& width, int& height)
 {
