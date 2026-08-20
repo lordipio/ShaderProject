@@ -88,6 +88,7 @@ void Graphics::SetMVP()
     model2 = glm::translate(model2, glm::vec3(1.f, 1.f, -10.f));
     model2 = glm::rotate(model2, 0.f, glm::vec3(0, 1, 0));
     model2 = glm::scale(model2, glm::vec3(1.f));
+
     // VIEW
     glm::vec3 eye = glm::vec3(0.f, 0.f, 0.f);
     glm::vec3 center = glm::vec3(0.f, 0.f, -1.f);

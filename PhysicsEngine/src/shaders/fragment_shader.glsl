@@ -26,5 +26,11 @@ void main()
     // color = mix(black, color, t1);
     // color = mix(black, color, t2);
     
-    gl_FragColor = texture(diffuse, correctedUV);
+    //gl_FragColor = texture(diffuse, correctedUV);
+    vec3 skyColor = vec3(0.f, 0.7f, 0.9f);
+    vec3 groundColor = vec3(0.3f, 0.0f, 0.3f);
+    float hemiMix = remap(vVertexNormal.y, -1, 1, 0, 1);
+    
+    gl_FragColor = vec4(mix(groundColor, skyColor , hemiMix), 1.f);
+    
 }

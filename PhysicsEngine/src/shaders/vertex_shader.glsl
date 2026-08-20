@@ -14,5 +14,5 @@ void main()
     vec4 localPos = vec4(pos, 1);
     gl_Position = projection * view * model * localPos;
     vUV = uv;
-    vVertexNormal = vertexNormal;
+    vVertexNormal = (model * vec4(vertexNormal, 0)).xyz;
 }
