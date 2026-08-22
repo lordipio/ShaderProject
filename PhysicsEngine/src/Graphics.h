@@ -84,4 +84,11 @@ private:
 	glm::vec3 worldUp = glm::vec3(0, 1, 0);
 	glm::vec3 worldRight = glm::vec3(1, 0, 0);
 
+	float objectRotateY = 0;
+	float objectRotateX = 0;
+
+	void ObjectRotateLeft();
+	void ObjectRotateRight();
+	void ObjectRotateUp();
+	void ObjectRotateDown();
 };

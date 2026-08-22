@@ -314,18 +314,14 @@ void Graphics::PreDraw()
             meshShader->Set4x4FloatMatrix("model", model2);
         }
 
-
         meshShader->Set4x4FloatMatrix("projection", proj);
-
+        meshShader->Set3FloatVector("cameraDir", lookDirection);
         meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1.f, 0.2f));
-
         meshShader->Set2FloatVector("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-
         meshShader->SetFloat("currentTime", currentTime);
 
         i++;
     }
-    
 }
 
 void Graphics::ClearScreen()
@@ -436,6 +432,39 @@ void Graphics::ProcessInput(const Uint8* keyboardState, float dt)
 
     if (keyboardState[SDL_SCANCODE_E])
         CameraMoveUp();
+
+    // Move Object
+    if (keyboardState[SDL_SCANCODE_LEFT])
+        ObjectRotateLeft();
+
+    if (keyboardState[SDL_SCANCODE_RIGHT])
+        ObjectRotateRight();
+
+    if (keyboardState[SDL_SCANCODE_UP])
+        ObjectRotateUp();
+
+    if (keyboardState[SDL_SCANCODE_DOWN])
+        ObjectRotateDown();
+}
+
+void Graphics::ObjectRotateLeft()
+{
+    model2 = glm::rotate(model2, deltaTime * 1.f, glm::vec3(0, 1, 0));
+}
+
+void Graphics::ObjectRotateRight()
+{
+    model2 = glm::rotate(model2, -deltaTime * 1.f, glm::vec3(0, 1, 0));
+}
+
+void Graphics::ObjectRotateUp()
+{
+    model2 = glm::rotate(model2, deltaTime * 1.f, glm::vec3(1, 0, 0));
+}
+
+void Graphics::ObjectRotateDown()
+{
+    model2 = glm::rotate(model2, -deltaTime * 1.f, glm::vec3(1, 0, 0));
 }
 
 void LoadSkyBox()

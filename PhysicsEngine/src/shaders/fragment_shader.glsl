@@ -5,8 +5,12 @@ uniform sampler2D overlay;
 uniform vec3 tint;
 uniform vec2 resolution;
 uniform float currentTime;
-varying vec2 vUV;
-varying vec3 vVertexNormal;
+uniform vec3 cameraDir;
+
+layout (location = 0) in vec2 vUV;
+layout (location = 1) in vec3 vVertexNormal;
+layout (location = 2) in vec3 vVertexPos;
+
 out vec4 fragColor;
 
 float remap(float value, float inMin, float inMax, float outMin, float outMax)
@@ -31,33 +35,31 @@ vec3 srgbToLinear(vec3 srgb)
 
 void main()
 {
-    // vec4 black = vec4(0, 0, 0,1);
+    
     vec2 correctedUV = vec2(vUV.x, -vUV.y);
     vec3 baseColor = vec3(0.5, 0.3, 0.3);
-    // float circleRad = 3.14 * 2.f;
 
-    // float t1 = remap(sin(vUV.y * circleRad * 100 - currentTime * 20.f), -1.f, 1.f, 0.8f, 1.f);
-    // float t2 = remap(sin(vUV.y * circleRad * 250 + currentTime * 50.f), -1.f, 1.f, 0.7f, 1.f);
-
-    // vec4 color = texture(diffuse, correctedUV);
-    // color = mix(black, color, t1);
-    // color = mix(black, color, t2);
-    
-    //gl_FragColor = texture(diffuse, correctedUV);
     vec3 skyColor = vec3(0.f, 0.7f, 0.9f);
     vec3 groundColor = vec3(0.3f, 0.0f, 0.3f);
     float hemiMix = remap(vVertexNormal.y, -1, 1, 0, 1);
     vec3 hemiLight = mix(groundColor, skyColor, hemiMix);
-    // gl_FragColor = vec4(mix(groundColor, skyColor , hemiMix), 1.f);
-    vec3 lightDir = normalize(vec3(1, 1, 1));   
+    
+    
+    vec3 lightDir = normalize(vec3(1, 1, 0));   
     vec3 lightColor = vec3(1.f, 1.f, 0.7f);
-    float dp = max (0, dot(lightDir, vVertexNormal));
-    vec3 lambertian = dp * lightColor;
 
-    vec3 lighting = hemiLight + lambertian;
-    vec3 color = srgbToLinear(baseColor) *  lighting;
+    float lambertian_dp = max (0, dot(lightDir, vVertexNormal));
+    vec3 lambertian = lambertian_dp * lightColor;
+
+    vec3 reflection = normalize(reflect(lightDir, vVertexNormal));
+    float phongSpecular = max(0.f, dot(reflection, cameraDir)); 
+    phongSpecular = pow(phongSpecular, 32);
+    vec3 specularColor = phongSpecular * lightColor;
+
+    vec3 lighting = hemiLight * 0 + lambertian;
+    vec3 color = srgbToLinear(baseColor) *  lighting + specularColor;
+    
     color = linearToSrgb(color);
 
     fragColor = vec4(color, 1.f);
-    
 }
