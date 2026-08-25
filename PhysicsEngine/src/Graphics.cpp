@@ -69,6 +69,7 @@ void Graphics::Setup()
 
     Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
     suzanne->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
+    Skybox->GetMaterial()->AddCubemapTexture("skybox", skyboxTexturesAddress);
     suzanne->SetMaterial(new Material("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl"));
 
     CreateBuffers();
@@ -316,6 +317,7 @@ void Graphics::PreDraw()
 
         meshShader->Set4x4FloatMatrix("projection", proj);
         meshShader->Set3FloatVector("cameraDir", lookDirection);
+        meshShader->Set3FloatVector("cameraPos", cameraPos);
         meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1.f, 0.2f));
         meshShader->Set2FloatVector("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
         meshShader->SetFloat("currentTime", currentTime);

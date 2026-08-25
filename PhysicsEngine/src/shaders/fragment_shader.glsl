@@ -6,6 +6,8 @@ uniform vec3 tint;
 uniform vec2 resolution;
 uniform float currentTime;
 uniform vec3 cameraDir;
+uniform vec3 cameraPos;
+uniform samplerCube skybox;
 
 layout (location = 0) in vec2 vUV;
 layout (location = 1) in vec3 vVertexNormal;
@@ -35,7 +37,9 @@ vec3 srgbToLinear(vec3 srgb)
 
 void main()
 {
-    
+    // cameraDir = normalize(-cameraPos + vVertexPos);
+    vec3 cameraView = normalize(-cameraPos + vVertexPos);
+
     vec2 correctedUV = vec2(vUV.x, -vUV.y);
     vec3 baseColor = vec3(0.5, 0.3, 0.3);
 
@@ -44,7 +48,6 @@ void main()
     float hemiMix = remap(vVertexNormal.y, -1, 1, 0, 1);
     vec3 hemiLight = mix(groundColor, skyColor, hemiMix);
     
-    
     vec3 lightDir = normalize(vec3(1, 1, 0));   
     vec3 lightColor = vec3(1.f, 1.f, 0.7f);
 
@@ -52,14 +55,23 @@ void main()
     vec3 lambertian = lambertian_dp * lightColor;
 
     vec3 reflection = normalize(reflect(lightDir, vVertexNormal));
-    float phongSpecular = max(0.f, dot(reflection, cameraDir)); 
-    phongSpecular = pow(phongSpecular, 32);
+    float phongSpecular = max(0.f, dot(reflection, cameraView)); 
+    phongSpecular = pow(phongSpecular, 16);
     vec3 specularColor = phongSpecular * lightColor;
 
+    vec3 IBL_coord = normalize(reflect(cameraView, vVertexNormal));
+    vec3 IBL_color = texture(skybox, IBL_coord).xyz;
+    specularColor += 0.2 * IBL_color;
+
+    float fresnel = 1 - max(0, dot(-cameraView, vVertexNormal));
+    fresnel = pow(fresnel, 1);
+    specularColor *= fresnel;
+
     vec3 lighting = hemiLight * 0 + lambertian;
-    vec3 color = srgbToLinear(baseColor) *  lighting + specularColor;
+    vec3 color = srgbToLinear(baseColor) *  lighting + specularColor * 1.0f;
     
     color = linearToSrgb(color);
 
+    // color = vec3(fresnel);
     fragColor = vec4(color, 1.f);
 }
