@@ -39,7 +39,6 @@ void main()
 {
     // cameraDir = normalize(-cameraPos + vVertexPos);
     vec3 cameraView = normalize(-cameraPos + vVertexPos);
-
     vec2 correctedUV = vec2(vUV.x, -vUV.y);
     vec3 baseColor = vec3(0.5, 0.3, 0.3);
 
@@ -49,25 +48,32 @@ void main()
     vec3 hemiLight = mix(groundColor, skyColor, hemiMix);
     
     vec3 lightDir = normalize(vec3(1, 1, 0));   
-    vec3 lightColor = vec3(1.f, 1.f, 0.7f);
+    vec3 lightColor = vec3(1.f, 1.f, 0.8f);
+    vec3 ambientLightColor = vec3(0.7f, 1.f, 1.f);
 
     float lambertian_dp = max (0, dot(lightDir, vVertexNormal));
-    vec3 lambertian = lambertian_dp * lightColor;
+    
+    float cuttingShadow = smoothstep(0.5, 0.505, lambertian_dp);
+    lambertian_dp *= cuttingShadow;
+
+    vec3 diffuse = lambertian_dp * lightColor;
 
     vec3 reflection = normalize(reflect(lightDir, vVertexNormal));
     float phongSpecular = max(0.f, dot(reflection, cameraView)); 
-    phongSpecular = pow(phongSpecular, 16);
+    phongSpecular = pow(phongSpecular, 64);
     vec3 specularColor = phongSpecular * lightColor;
+    specularColor = smoothstep(0.5, 0.505, specularColor);
 
     vec3 IBL_coord = normalize(reflect(cameraView, vVertexNormal));
     vec3 IBL_color = texture(skybox, IBL_coord).xyz;
-    specularColor += 0.2 * IBL_color;
+    // specularColor += 0.2 * IBL_color;
 
     float fresnel = 1 - max(0, dot(-cameraView, vVertexNormal));
-    fresnel = pow(fresnel, 1);
-    specularColor *= fresnel;
+    fresnel = pow(fresnel, 4);
+    fresnel = smoothstep(0.5, 0.505, fresnel);
+    // specularColor *= fresnel;
 
-    vec3 lighting = hemiLight * 0 + lambertian;
+    vec3 lighting = hemiLight * (fresnel + 0.4) + diffuse * 0.8;
     vec3 color = srgbToLinear(baseColor) *  lighting + specularColor * 1.0f;
     
     color = linearToSrgb(color);
