@@ -12,6 +12,7 @@ uniform samplerCube skybox;
 layout (location = 0) in vec2 vUV;
 layout (location = 1) in vec3 vVertexNormal;
 layout (location = 2) in vec3 vVertexPos;
+layout (location = 3) in vec3 vDebugColor;
 
 out vec4 fragColor;
 
@@ -41,8 +42,8 @@ void main()
     vec3 cameraView = normalize(-cameraPos + vVertexPos);
     vec2 correctedUV = vec2(vUV.x, -vUV.y);
     // vec3 baseColor = vec3(0.5, 0.3, 0.3);
-    vec3 baseColor = texture2D(diffuse, correctedUV).xyz;
-
+    // vec3 baseColor = texture2D(diffuse, correctedUV).xyz;
+    vec3 baseColor = vDebugColor; 
     vec3 skyColor = vec3(0.f, 0.7f, 0.9f);
     vec3 groundColor = vec3(0.3f, 0.0f, 0.3f);
     float hemiMix = remap(vVertexNormal.y, -1, 1, 0, 1);
@@ -56,20 +57,20 @@ void main()
     
     float cuttingShadow = 1.f;
     
-    if (lambertian_dp < 0.1)
-    cuttingShadow = 0.0;
+    // if (lambertian_dp < 0.1)
+    // cuttingShadow = 0.0;
 
-    else if (lambertian_dp < 0.2)
-    cuttingShadow = 0.2;
+    // else if (lambertian_dp < 0.2)
+    // cuttingShadow = 0.2;
 
-    else if (lambertian_dp < 0.5)
-    cuttingShadow = 0.3;
+    // else if (lambertian_dp < 0.5)
+    // cuttingShadow = 0.3;
 
     // if (lambertian_dp > 0.2 && lambertian_dp < 0.5)
        //  cuttingShadow = 0.3;
 
-
-    vec3 diffuse = cuttingShadow * lightColor;
+    
+    vec3 diffuse = lambertian_dp * lightColor;
 
     vec3 reflection = normalize(reflect(lightDir, vVertexNormal));
     float phongSpecular = max(0.f, dot(reflection, cameraView)); 
@@ -92,7 +93,9 @@ void main()
     color = linearToSrgb(color);
 
 
-
+    // color = vec3(1.f);
     // color = vec3(lambertian_dp);
+    // color = vec3(vDebugColor);
+    // color = vDebugColor;
     fragColor = vec4(color, 1.f);
 }

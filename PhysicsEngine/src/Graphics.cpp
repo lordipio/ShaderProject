@@ -67,7 +67,7 @@ void Graphics::Setup()
     Skybox->GetMaterial()->AddCubemapTexture("cubemap", skyboxTexturesAddress);
     Skybox->SetMaterial(new Material("./src/shaders/Skybox.vert", "./src/shaders/Skybox.frag"));
 
-    Mesh* suzanne = LoadMesh("./assets/Suzanne.obj");
+    Mesh* suzanne = LoadMesh("./assets/sphere 128.obj");
     suzanne->GetMaterial()->AddTexture("diffuse", "./assets/wood_diff.jpg");
     Skybox->GetMaterial()->AddCubemapTexture("skybox", skyboxTexturesAddress);
     suzanne->SetMaterial(new Material("./src/shaders/vertex_shader.glsl", "./src/shaders/fragment_shader.glsl"));
@@ -86,7 +86,7 @@ void Graphics::SetMVP()
     model = glm::scale(model, glm::vec3(1.f));
 
     model2 = glm::mat4x4(1.f);
-    model2 = glm::translate(model2, glm::vec3(1.f, 1.f, -10.f));
+    model2 = glm::translate(model2, glm::vec3(0.f, 0.f, -10.f));
     model2 = glm::rotate(model2, 0.f, glm::vec3(0, 1, 0));
     model2 = glm::scale(model2, glm::vec3(1.f));
 
@@ -321,6 +321,7 @@ void Graphics::PreDraw()
         meshShader->Set3FloatVector("tint", glm::vec3(0.7, 1.f, 0.2f));
         meshShader->Set2FloatVector("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
         meshShader->SetFloat("currentTime", currentTime);
+        printf("currenTime: %f\n", currentTime);
 
         i++;
     }

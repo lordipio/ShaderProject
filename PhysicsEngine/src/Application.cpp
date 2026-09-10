@@ -33,6 +33,7 @@ void Application::Input()
 				if (sdlEvent.key.keysym.sym == SDLK_ESCAPE)
 					isRunning = false;
 				break;
+
 			//	if (sdlEvent.key.keysym.sym == SDLK_a)
 			//		graphics->CameraMoveLeft();
 
