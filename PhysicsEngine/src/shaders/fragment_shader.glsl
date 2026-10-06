@@ -19,6 +19,8 @@ const vec3 green = vec3(0, 1.0, 0.0);
 const vec3 yellow = vec3(1.0, 1.0, 0.0);
 const vec3 sunYellow = vec3(1.0, 1.0, 0.7);
 const vec3 brown = vec3(0.65, 0.16, 0.16);
+const vec3 orange = vec3(1.0, 0.5, 0.0);
+const vec3 orangeRed = vec3(1.0, 0.15, 0.0);
  
 // --- MORNING (Soft Sunrise) ---
 const vec3 morningTop = vec3(0.4, 0.6, 0.9);  // Soft sky blue
@@ -240,43 +242,39 @@ float DomainWarpingFBM(vec3 coord)
     return FBM(coord + offset2, 8, 0.5, 2);
 }
 
+float SDFCircle(vec2 pixelCoord, float radius, vec2 pos)
+{
+    pixelCoord = pos - pixelCoord;
+    return length(pixelCoord) - radius;
+}
+
 void main()
 {
-    vec2 scale = vec2(1.0, 1.0) * 10.0;
-    vec3 coord = vec3(vUV * scale, currentTime * 0.2);
-
-    vec3 pixel = vec3(0.5 / resolution, 0.0) * vec3(scale, 0.0);
-
-    float s1 = TurbulenceFBM(coord - pixel.xzz, 5, 0.5, 2.0);
-    float s2 = TurbulenceFBM(coord + pixel.xzz, 5, 0.5, 2.0);
-    float s3 = TurbulenceFBM(coord - pixel.zyz, 5, 0.5, 2.0);
-    float s4 = TurbulenceFBM(coord + pixel.zyz, 5, 0.5, 2.0);
-    vec3 normal = normalize(vec3(-s2 + s1, -s4 + s3, 0.01));
-
-    vec3 baseColor = vec3(0.5, 0.3, 0.3);
-
-    // vec3 skyColor = vec3(0.0, 0.7, 0.9);
-    // vec3 groundColor = vec3(0.3, 0.0, 0.3);
-    // float hemiMix = remap(normal.y, -1.0, 1.0, 0.0, 1.0);
-    // vec3 hemiLight = mix(groundColor, skyColor, hemiMix);
+    float aspectRatio = resolution.x/resolution.y;
+    vec2 coord = (vUV - 0.5) * resolution;
+    vec2 uvOverlay = vec2(vUV.x * aspectRatio, 1 - vUV.y);
+    vec2 uvBackground = vec2(vUV.x, 1 - vUV.y);
     
-    vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));   
-    vec3 lightColor = vec3(1.0, 1.0, 0.7);
+    float distortion = FBM(vec3(coord, currentTime * 100) * 0.005, 6, 0.5, 2);
+    float maxRadius = 450.0;
+    float distToCircle = SDFCircle(coord, clamp(currentTime * 80, 0, maxRadius), vec2(0.0)) + distortion * 100;
+    uvBackground = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvBackground;
+    uvOverlay = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvOverlay;
+    vec3 overlayTex = texture2D(overlay, uvOverlay - vec2(0.38, -0.05)).xyz;   
 
-    // Diffuse (Lambertian)
-    float lambertian_dp = max(0.0, dot(lightDir, normal));
-    vec3 lambertian = lambertian_dp * lightColor;
-    
-    vec3 cameraDir = vec3(0.0, 0.0, 1.0);
-    vec3 reflection = normalize(reflect(-lightDir, normal));
-    float phongSpecular = max(0.0, dot(reflection, cameraDir)); 
-    phongSpecular = pow(phongSpecular, 32.0);
-    vec3 specularColor = phongSpecular * lightColor;
+    vec3 backgroundTex = texture2D(diffuse, uvBackground).xyz;   
+    vec3 color = backgroundTex;
 
-    baseColor = mix(brown, green, smoothstep(0, 1, TurbulenceFBM(coord, 5, 0.5, 2)));
+    float blackShine = exp(-distToCircle * distToCircle * 0.001);
+    color = mix(color, black, blackShine);
 
-    vec3 lighting = lambertian;
-    vec3 color = baseColor * lighting + specularColor;
+    float orangeBurningArea = smoothstep(0, 10, distToCircle);
+    color = mix(orangeRed, color,orangeBurningArea);
+    color = mix(overlayTex, color, step(0.0, distToCircle));
+
+    // glow
+    float glowAmount = 1 - smoothstep(0, 20, abs(distToCircle));
+    color += glowAmount * 0.5 * orange;
 
     gl_FragColor = vec4(color, 1.0);
 }
