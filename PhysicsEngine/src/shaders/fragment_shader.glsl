@@ -16,7 +16,11 @@ const vec3 grey = vec3(0.7);
 const vec3 red = vec3(1.0, 0.0, 0.0);
 const vec3 blue = vec3(0, 0.0, 1.0);
 const vec3 green = vec3(0, 1.0, 0.0);
-const vec3 yellow = vec3(1.0, 1.0, 0.7);
+const vec3 yellow = vec3(1.0, 1.0, 0.0);
+const vec3 sunYellow = vec3(1.0, 1.0, 0.7);
+const vec3 brown = vec3(0.65, 0.16, 0.16);
+const vec3 orange = vec3(1.0, 0.5, 0.0);
+const vec3 orangeRed = vec3(1.0, 0.15, 0.0);
  
 // --- MORNING (Soft Sunrise) ---
 const vec3 morningTop = vec3(0.4, 0.6, 0.9);  // Soft sky blue
@@ -47,50 +51,195 @@ float remap(float value, float inMin, float inMax, float outMin, float outMax)
     return (1 - ((inMax - value) / (inMax - inMin))) * (outMax - outMin) + outMin;
 }
 
-vec3 backgroundColor(float dayTime)
+    
+vec3 ColoredBackground()
 {
-    vec3 color = mix(vec3(0.1, 0.7, 1.0), vec3(0.4, 0.6, 0.8) * 0.8, vec3(vUV, vUV.y));
-    
-    
-    float uvMultiplied = vUV.x * vUV.y;
-
-    vec3 night = mix(nightBot, nightTop, uvMultiplied);
-    vec3 morning = mix(morningBot, morningTop, uvMultiplied);
-    vec3 midday = mix(middayBot, middayTop, uvMultiplied);
-    vec3 evening = mix(eveningBot, eveningTop, uvMultiplied);
-
-    if (dayTime < morningTime) // morning
-    {
-        color = mix(night, morning, smoothstep(0, 1, remap(dayTime, 0, 2, 0, 1)));
-    }
-
-    else if(dayTime < middayTime) // midday
-    {
-        color = mix(morning, midday, smoothstep(0, 1, remap(dayTime, morningTime, morningTime + 2, 0, 1)));
-    }
-
-    else if (dayTime < eveningTime) // evening
-    {
-        color = mix(midday, evening, smoothstep(0, 1, remap(dayTime, middayTime, middayTime + 2, 0, 1)));
-    }
-
-    else if (dayTime < nightTime) // night
-    {
-        color = mix(evening, night, smoothstep(0, 1, remap(dayTime, eveningTime, eveningTime + 2, 0, 1)));
-    }
-    
-    vec3 outputColor = color;
-    return outputColor;
-
-    return color;
+    vec3 topColor;
+    vec3 botColor;
+    topColor = mix(red, green, step(0.5, vUV.x));
+    botColor = mix(yellow, blue, step(0.5, vUV.x));
+    return mix(botColor, topColor, step(0.5, vUV.y));
 }
 
-vec3 drawGrid()
+float Rand(vec2 p)
 {
-    vec2 UV = vec2(vUV.x * resolution.x/resolution.y, vUV.y) - vec2(0.5 * resolution.x/resolution.y,0.5);
-    vec2 color = smoothstep(vec2(0.95), vec2(1.0), fract(UV * 10.0));
-    vec3 outputColor = vec3(max(color.x, color.y));
-    return outputColor;    
+    p = 50.0 * fract(p * 0.3183099 + vec2(0.71, 0.113));
+    return -1.0 + 2.0 * fract(p.x * p.y * (p.x + p.y));
+}
+
+float noise(vec2 coord, float cellSize)
+{
+    vec2 pc = cellSize * coord;
+    vec2 base = floor(pc);
+    
+    float s1 = Rand((base + vec2(0, 0)) / cellSize);
+    float s2 = Rand((base + vec2(1, 0)) / cellSize);
+    float s3 = Rand((base + vec2(0, 1)) / cellSize);;
+    float s4 = Rand((base + vec2(1, 1)) / cellSize);;
+
+    vec2 f = fract(pc);
+
+    float px1 = mix(s1, s2, f.x);
+    float px2 = mix(s3, s4, f.x);
+
+    return mix(px1, px2, f.y);
+}
+
+vec3 hash3D(vec3 p) {
+    p = vec3( dot(p, vec3(127.1, 311.7, 74.7)),
+              dot(p, vec3(269.5, 183.3, 246.1)),
+              dot(p, vec3(113.5, 271.9, 124.6)));
+              
+    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+}
+
+float noise3D(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+
+    vec3 u = f * f * (3.0 - 2.0 * f);
+
+    vec3 v000 = i + vec3(0.0, 0.0, 0.0);
+    vec3 v100 = i + vec3(1.0, 0.0, 0.0);
+    vec3 v010 = i + vec3(0.0, 1.0, 0.0);
+    vec3 v110 = i + vec3(1.0, 1.0, 0.0);
+    vec3 v001 = i + vec3(0.0, 0.0, 1.0);
+    vec3 v101 = i + vec3(1.0, 0.0, 1.0);
+    vec3 v011 = i + vec3(0.0, 1.0, 1.0);
+    vec3 v111 = i + vec3(1.0, 1.0, 1.0);
+
+    float d000 = dot(hash3D(v000), f - vec3(0.0, 0.0, 0.0));
+    float d100 = dot(hash3D(v100), f - vec3(1.0, 0.0, 0.0));
+    float d010 = dot(hash3D(v010), f - vec3(0.0, 1.0, 0.0));
+    float d110 = dot(hash3D(v110), f - vec3(1.0, 1.0, 0.0));
+    float d001 = dot(hash3D(v001), f - vec3(0.0, 0.0, 1.0));
+    float d101 = dot(hash3D(v101), f - vec3(1.0, 0.0, 1.0));
+    float d011 = dot(hash3D(v011), f - vec3(0.0, 1.0, 1.0));
+    float d111 = dot(hash3D(v111), f - vec3(1.0, 1.0, 1.0));
+
+    float mixX1 = mix(d000, d100, u.x);
+    float mixX2 = mix(d010, d110, u.x);
+    
+    float mixX3 = mix(d001, d101, u.x);
+    float mixX4 = mix(d011, d111, u.x);
+
+    float mixY1 = mix(mixX1, mixX2, u.y);
+    float mixY2 = mix(mixX3, mixX4, u.y);
+
+    return mix(mixY1, mixY2, u.z);
+}
+
+float FBM(vec3 p, int octaves, float persistence, float lacunarity)
+{
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    float total = 0.0;
+    float normalization = 0.0;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        float noiseVal = noise3D(p * frequency) * amplitude;
+        total += noiseVal;
+        normalization += amplitude;
+
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    total /= normalization;
+    return total;
+}
+
+float RidgedFBM(vec3 p, int octaves, float persistence, float lacunarity)
+{
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    float total = 0.0;
+    float normalization = 0.0;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        float noiseVal = noise3D(p * frequency);
+        noiseVal = abs(noiseVal);
+        noiseVal = 1 - noiseVal;
+        total += noiseVal * amplitude;
+        normalization += amplitude;
+
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    total /= normalization;
+    total *= total;
+    return total;
+}
+
+float TurbulenceFBM(vec3 p, int octaves, float persistence, float lacunarity)
+{
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    float total = 0.0;
+    float normalization = 0.0;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        float noiseVal = noise3D(p * frequency);
+        noiseVal = abs(noiseVal);
+        total += noiseVal * amplitude;
+        normalization += amplitude;
+
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    total /= normalization;
+    return total;
+}
+
+float CellularNoise(vec3 coord)
+{
+    vec2 i = floor(coord.xy);
+    vec2 f = fract(coord.xy);
+
+    float minDist = 10;
+
+    for(int x = -1; x <= 1; x++)
+        for(int y = -1; y <= 1; y++)
+        {
+            vec2 gridOffset = vec2(x, y);
+            vec2 gridPos = i + gridOffset;
+            vec2 randomPoint = vec2(Rand(gridPos), Rand(vec2(gridPos * 12.81302)));
+            randomPoint = 0.5 + 0.5 * sin(randomPoint * 91.9123 + coord.z);
+            vec2 cellPoint =  randomPoint.xy + gridPos;
+            float distFromBaseCellPoint = distance(cellPoint, coord.xy);
+            minDist = min(minDist, distFromBaseCellPoint);
+        }
+
+    return minDist;
+}
+
+float SteppedNoise(float noiseSample)
+{
+    float steppedSampled = floor(noiseSample * 10.0) / 10.0;
+    float remainder = fract(noiseSample * 10.0);
+
+    return (steppedSampled - remainder) * 0.5 + 0.5;
+}
+
+float DomainWarpingFBM(vec3 coord)
+{
+    vec3 offset = vec3(
+        FBM(coord + vec3(0.239, 481, 29), 4, 0.5, 2),
+        FBM(coord + vec3(21, 0.321, 382), 2, 0.8, 4),
+        0
+    );
+
+    vec3 offset2 = vec3(
+        FBM(coord + 4 * offset + vec3(9, 481.02, 183.293), 8, 0.2, 0.9),
+        FBM(coord + 8 * offset + vec3(0.85, 41.02, 1.9481), 8, 0.5, 4),
+        0
+    );
+    return FBM(coord + offset2, 8, 0.5, 2);
 }
 
 float SDFCircle(vec2 pixelCoord, float radius, vec2 pos)
@@ -99,274 +248,33 @@ float SDFCircle(vec2 pixelCoord, float radius, vec2 pos)
     return length(pixelCoord) - radius;
 }
 
-float SDFLine(vec2 pixelCoord, vec2 a, vec2 b)
-{
-    vec2 ba = b-a;
-    vec2 pa = pixelCoord - a;
-
-    float t = dot(pa, ba)/dot(ba, ba);
-
-    t = clamp(t, 0, 1);
-
-    vec2 nearestPoint = a + t * ba;
-
-    float distFromP = length(nearestPoint - pixelCoord);
-
-    return distFromP;
-}
-
-float SDFBox(vec2 pixelCoord, vec2 boxSize)
-{
-    vec2 pos = pixelCoord ;
-    vec2 d = abs(pos) - boxSize;
-
-    float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0);
-    return dist;
-}
-
-mat2 Rotate2D(float angle)
-{
-    float c = cos(angle);
-    float s = sin(angle);
-
-    return mat2(c, -s, s, c);
-}
-
-float SDFUnion(float d1, float d2)
-{
-    return min(d1, d2);
-}
-
-float SDFSubtraction(float d1, float d2)
-{
-    return max(d1, -d2);
-}
-
-float SDFIntersection(float d1, float d2)
-{
-    return max(d1, d2);
-}
-
-float sminPoly(float a, float b, float k) 
-{
-    // 1. Calculate the blend percentage (h)
-    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    
-    // 2. Mix the two distances and subtract the mathematical curve
-    return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-vec2 SDFCloud(vec2 pixelCoord, float radius, vec2 pos)
-{
-    float c1 = SDFCircle(pixelCoord, radius * 0.9, pos + vec2(0, 0));
-    float c2 = SDFCircle(pixelCoord, radius * 1.1, pos + vec2(radius * 1.2, 0));
-    float c3 = SDFCircle(pixelCoord, radius * 0.9, pos + vec2( radius * 2.2, 0));
-
-    float xOffset = 30;
-    float yRadiusOffsetMultiplyer = 0.4;
-    float shadow1 = SDFCircle(pixelCoord, radius * 0.9, pos - vec2(xOffset, radius * yRadiusOffsetMultiplyer));
-    float shadow2 = SDFCircle(pixelCoord, radius * 1.1, pos + vec2(radius * 1.2 - xOffset, -radius * yRadiusOffsetMultiplyer));
-    float shadow3 = SDFCircle(pixelCoord, radius * 0.9, pos + vec2( radius * 2.2 - xOffset, -radius * yRadiusOffsetMultiplyer));
-    float c = SDFUnion(SDFUnion(c1, c2), c3);
-    float shadow = SDFUnion(SDFUnion(shadow1, shadow2), shadow3);
-
-    return vec2(c, shadow);
-} 
-
-float HashSample(vec2 seed)
-{
-    return sin(dot(seed, vec2(12.18402, 89.02941)));
-}
-
-float SDFSun(vec2 pixelCoord, float radius, vec2 pos)
-{
-    float circle = SDFCircle(pixelCoord, radius, pos);
-    return circle;
-}
-
-float SDFMoon(vec2 pixelCoord, float radius, vec2 pos)
-{
-    float smallCircle = SDFCircle(pixelCoord, radius , pos - vec2(radius * 0.5, -radius * 0.5));
-    float bigCircle = SDFCircle(pixelCoord, radius, pos);
-    return SDFSubtraction(bigCircle, smallCircle);
-}
-
-float easeOutBounce(float x) {
-    const float n1 = 7.5625;
-    const float d1 = 2.75;
-
-    if (x < 1.0 / d1) {
-        return n1 * x * x;
-    } else if (x < 2.0 / d1) {
-        x -= 1.5 / d1;
-        return n1 * x * x + 0.75;
-    } else if (x < 2.5 / d1) {
-        x -= 2.25 / d1;
-        return n1 * x * x + 0.9375;
-    } else {
-        x -= 2.625 / d1;
-        return n1 * x * x + 0.984375;
-    }
-}
-
-float easeInBounce(float x) {
-    return 1.0 - easeOutBounce(1.0 - x);
-}
-
-float SDFPentagram(in vec2 p, in float r, in vec2 pos)
-{
-    p -= pos;
-    const float k1x = 0.809016994; // cos(π/ 5) = ¼(√5+1)
-    const float k2x = 0.309016994; // sin(π/10) = ¼(√5-1)
-    const float k1y = 0.587785252; // sin(π/ 5) = ¼√(10-2√5)
-    const float k2y = 0.951056516; // cos(π/10) = ¼√(10+2√5)
-    const float k1z = 0.726542528; // tan(π/ 5) = √(5-2√5)
-    const vec2  v1  = vec2( k1x,-k1y);
-    const vec2  v2  = vec2(-k1x,-k1y);
-    const vec2  v3  = vec2( k2x,-k2y);
-    
-    p.x = abs(p.x);
-    p -= 2.0*max(dot(v1,p),0.0)*v1;
-    p -= 2.0*max(dot(v2,p),0.0)*v2;
-    p.x = abs(p.x);
-    p.y -= r;
-    return length(p-v3*clamp(dot(p,v3),0.0,k1z*r))
-           * sign(p.y*v3.x-p.x*v3.y);
-}
-
 void main()
 {
-    float dayTime = mod(currentTime, 20); 
-    vec3 color = backgroundColor(dayTime);
-    vec2 pixelCoord = (vUV - 0.5) * resolution; // -960, 960
+    float aspectRatio = resolution.x/resolution.y;
+    vec2 coord = (vUV - 0.5) * resolution;
+    vec2 uvOverlay = vec2(vUV.x * aspectRatio, 1 - vUV.y);
+    vec2 uvBackground = vec2(vUV.x, 1 - vUV.y);
+    
+    float distortion = FBM(vec3(coord, currentTime * 100) * 0.005, 6, 0.5, 2);
+    float maxRadius = 450.0;
+    float distToCircle = SDFCircle(coord, clamp(currentTime * 80, 0, maxRadius), vec2(0.0)) + distortion * 100;
+    uvBackground = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvBackground;
+    uvOverlay = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvOverlay;
+    vec3 overlayTex = texture2D(overlay, uvOverlay - vec2(0.38, -0.05)).xyz;   
 
+    vec3 backgroundTex = texture2D(diffuse, uvBackground).xyz;   
+    vec3 color = backgroundTex;
 
-    //////////////////////////////// SUN ////////////////////////////////
-    vec2 sunStartPos = vec2(-500, 750);
-    vec2 sunEndPos = vec2(-500, 270);
-    vec2 sunPos = sunStartPos;
-    if (dayTime < morningTime)
-    {
-        sunPos.y = remap(dayTime, 0, morningTime - 2, sunStartPos.y, sunEndPos.y);
-        sunPos.y = clamp(sunPos.y, sunEndPos.y, sunStartPos.y);
-    }
+    float blackShine = exp(-distToCircle * distToCircle * 0.001);
+    color = mix(color, black, blackShine);
 
-    else if (dayTime < eveningTime)
-        sunPos = sunEndPos;
+    float orangeBurningArea = smoothstep(0, 10, distToCircle);
+    color = mix(orangeRed, color,orangeBurningArea);
+    color = mix(overlayTex, color, step(0.0, distToCircle));
 
-    else
-    {
-        sunPos.y = remap(dayTime, eveningTime, nightTime - 3, sunEndPos.y, sunStartPos.y);
-        sunPos.y = clamp(sunPos.y, sunEndPos.y, sunStartPos.y);
-    }
-
-    float distToSun = SDFSun(pixelCoord, 120, sunPos);
-    vec3 sunColor = mix(sunMorningColor, sunNoonColor, smoothstep(morningTime, middayTime - 2, dayTime));
-    color = mix(sunColor, color, smoothstep(0, 50, distToSun));
-    float s = max(0.001, distToSun);
-    float p = exp(-0.001*s*s);
-    p = clamp(p, 0, 1);
-    color += 0.5 * mix(black, white, p);
-
-
-    //////////////////////////////// MOON ////////////////////////////////
-    vec2 moonStartPos = vec2(500, 650);
-    vec2 moonEndPos = vec2(500, 370);
-    vec2 moonPos = moonStartPos;
-    if (dayTime > eveningTime)
-    {
-        float input = remap(dayTime, eveningTime, nightTime - 3, 0, 1);
-        input = clamp(input, 0, 1);
-        float bounceProgress = easeOutBounce(input);
-        moonPos.y = mix(moonStartPos.y, moonEndPos.y, bounceProgress);
-    }
-
-    else if (dayTime < morningTime)
-        moonPos.y = remap(dayTime, 0, morningTime - 3, moonEndPos.y, moonStartPos.y);
-
-    float distToMoon = SDFMoon(pixelCoord, 80, moonPos);
-    vec3 moonColor = white;
-    color = mix(moonColor, color, smoothstep(0, 5, distToMoon));
-    s = max(0.001, distToMoon);
-    p = exp(-0.01*s*s);
-    p = clamp(p, 0, 1);
-    color += 0.5 * mix(black, white, p);
-
-
-    //////////////////////////////// STARS ////////////////////////////////
-    const int STARS_COUNT = 8;
-    vec2 starEndPos;
-    vec2 starStartPos;
-    vec2 starPos;
-    float alpha;
-    float starBounceSpeed;
-    for (int i = 0; i < STARS_COUNT; i++)
-    {
-        alpha = 1.0;
-        starBounceSpeed = remap(HashSample(vec2(-1.5 * i, i * 11)), -1.0, 1.0, 0.8, 1.0);
-        starEndPos.x = HashSample(vec2(i + 3, i * 2));
-        starEndPos.x = remap(starEndPos.x, -1, 1, -900, 900);
-
-        starEndPos.y = HashSample(vec2(i, 4));
-        starEndPos.y = remap(starEndPos.y, -1, 1, 100, 450);
-
-        starStartPos = vec2(starEndPos.x, 600);
-        starPos = starStartPos;
-        if (dayTime > eveningTime)
-        {
-            float input = remap(dayTime, eveningTime, nightTime * starBounceSpeed, 0, 1);
-            alpha = 1.0;
-            input = clamp(input, 0, 1);
-            float bounceProgress = easeOutBounce(input);
-            starPos.y = mix(starStartPos.y, starEndPos.y, bounceProgress);
-        }
-
-        else if (dayTime < morningTime)
-        {
-            alpha = 1 - clamp(remap(dayTime, 0, morningTime * starBounceSpeed * 0.5, 0, 1.0), 0, 1);
-            starPos.y = starEndPos.y;
-        }
-
-        float starSize = remap(HashSample(vec2(i - 1.5, i * 20.412)), -1, 1, 5, 30);
-        float distToStar = SDFPentagram(pixelCoord, starSize, starPos);
-        vec3 starColor = yellow;
-        float starMask = 1 - smoothstep(0, 5, distToStar);
-        starMask *= alpha; 
-        color = mix(color, starColor, starMask);
-        s = max(0.001, distToStar);
-        p = exp(-0.01*s*s);
-        p = clamp(p, 0, 1);
-        color += mix(black, yellow, p) * starMask * remap(sin(currentTime * 5), -1, 1, 0.4, 1.2);
-
-    }
-
-
-    //////////////////////////////// CLOUDS ////////////////////////////////
-
-    float xBoundaryOffset = 300;
-    const int cloudCount = 10;
-    for (int i = 0; i < cloudCount; i++)
-    {
-        float randomX = HashSample(vec2(i, 12));
-        float randomY = HashSample(vec2(14, i));
-
-        // Set Y Pos boundary
-        randomY = remap(randomY, -1, 1, -0.1, 0.6);
-
-        float size = remap(randomX, -1, 1, 0.3, 0.8);
-        float speed = 1 - size;
-        
-        vec2 cloudPos = resolution * vec2(randomX, randomY) * 0.5f;
-        cloudPos += speed * vec2(currentTime * 250, 0);
-        cloudPos.x = mod(cloudPos.x, resolution.x);
-        cloudPos.x = remap(cloudPos.x, 0, resolution.x, -resolution.x/2 - xBoundaryOffset, resolution.x/2 + xBoundaryOffset);
-        vec2 distToCloud = SDFCloud(pixelCoord, 150.0 * size, cloudPos);
-
-        // Rendering
-        color = mix(black, color, remap(smoothstep(-10.0, 10.0, distToCloud.y), 0, 1, 0.6, 1)); // shadow
-        color = mix(white, color, smoothstep(-2.0, 2.0, distToCloud.x)); // cloud 
-        color = mix(black, color, pow(smoothstep(-7, 7, abs(distToCloud.x)), 6)); // cloud outline
-    }
+    // glow
+    float glowAmount = 1 - smoothstep(0, 20, abs(distToCircle));
+    color += glowAmount * 0.5 * orange;
 
     gl_FragColor = vec4(color, 1.0);
 }
