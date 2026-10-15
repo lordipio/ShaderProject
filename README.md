@@ -79,7 +79,7 @@
 ---
 
 ### 5. Procedural Landscape
-> **Branch:** `main` / `procedural-landscape`
+> **Branch:** `landscape`
 
 <div align="center">
   <a href="PhysicsEngine/assets/Procedural%20Landscape.gif" target="_blank">
@@ -92,7 +92,7 @@
 ---
 
 ### 6. Procedural Cloudy Day (SDF)
-> **Branch:** `cloudy-day-sdf-project`
+> **Branch:** `sdf`
 
 <div align="center">
   <a href="PhysicsEngine/assets/Procedural%20Cloudy%20Day.gif" target="_blank">
