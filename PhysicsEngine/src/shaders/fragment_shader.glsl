@@ -250,31 +250,70 @@ float SDFCircle(vec2 pixelCoord, float radius, vec2 pos)
 
 void main()
 {
-    float aspectRatio = resolution.x/resolution.y;
-    vec2 coord = (vUV - 0.5) * resolution;
-    vec2 uvOverlay = vec2(vUV.x * aspectRatio, 1 - vUV.y);
-    vec2 uvBackground = vec2(vUV.x, 1 - vUV.y);
-    
-    float distortion = FBM(vec3(coord, currentTime * 100) * 0.005, 6, 0.5, 2);
-    float maxRadius = 450.0;
-    float distToCircle = SDFCircle(coord, clamp(currentTime * 80, 0, maxRadius), vec2(0.0)) + distortion * 100;
-    uvBackground = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvBackground;
-    uvOverlay = (1 - smoothstep(0, 200, abs(distToCircle))) * distortion * 0.05 + uvOverlay;
-    vec3 overlayTex = texture2D(overlay, uvOverlay - vec2(0.38, -0.05)).xyz;   
+    vec2 uv = vec2(vUV.x * 2, 1 - vUV.y);
+    vec3 color = texture2D(diffuse, uv).xyz;
 
-    vec3 backgroundTex = texture2D(diffuse, uvBackground).xyz;   
-    vec3 color = backgroundTex;
+    if (uv.x > 1.0)
+    {
+        // Tinting
+        // color *= vec3(0.1, 0.8, 0.42);
 
-    float blackShine = exp(-distToCircle * distToCircle * 0.001);
-    color = mix(color, black, blackShine);
+        // Brightness
+        // color += vec3(0.1);
 
-    float orangeBurningArea = smoothstep(0, 10, distToCircle);
-    color = mix(orangeRed, color,orangeBurningArea);
-    color = mix(overlayTex, color, step(0.0, distToCircle));
+        // Saturation
+        float luminance = clamp(dot(color, vec3(0.2126, 0.7152, 0.0722)), 0, 1);
+        float saturationAmount = 0.0;
+        // color = mix(vec3(luminance), color, saturationAmount);
 
-    // glow
-    float glowAmount = 1 - smoothstep(0, 20, abs(distToCircle));
-    color += glowAmount * 0.5 * orange;
+        // Contrast
+        float contrastAmount = 8;
+        float midPoint = 0.5;
+        // color = clamp((color - midPoint) * contrastAmount + midPoint, 0, 1);
 
-    gl_FragColor = vec4(color, 1.0);
+        // Color Boost
+        vec3 refColor = vec3(0.1, 0.1, 1);
+        // float colorWeight = 1 - distance(color, refColor);
+        float colorWeight = dot(normalize(refColor), normalize(color));
+        colorWeight = pow(colorWeight, 20);
+        colorWeight = smoothstep(0.0, 1.0, colorWeight);
+        // color = mix(vec3(luminance), color, colorWeight);
+
+        // Vignette Effect
+        vec2 vignetteUV = fract(vec2(vUV.x * 2, vUV.y));
+        vignetteUV.x = 1 - abs((vignetteUV.x - 0.5) * 2);
+        vignetteUV.y = 1 - abs((vignetteUV.y - 0.5) * 2);
+        float vignetteAmount = vignetteUV.x + vignetteUV.y;
+        vignetteAmount = remap(vignetteAmount, 0, 2, 0, 1);
+        vignetteAmount = smoothstep(0.0, 1.0, vignetteAmount);
+        // color *= vec3(vignetteAmount);
+
+        // Pixelated Effect
+        vec2 gridSize = vec2(80.0);
+        vec2 pixelatedUV = vec2(fract(vUV.x * 2), 1 - vUV.y);
+        pixelatedUV = floor(pixelatedUV * gridSize) / gridSize;
+        color = texture2D(diffuse, pixelatedUV).xyz;
+
+
+        // Distortion
+        // vec2 pushedCoord = uv;
+        // float pushedSign = sign(uv.y - 0.5);
+        // color = vec3(pushedSign);
+        // pushedCoord.y = pushedSign * pow(abs(pushedCoord.y - 0.5) * 2.0, 0.7) * 0.5 + 0.5;
+        // color = texture2D(diffuse, pushedCoord).xyz;
+
+        
+        // Ripple
+        // vec2 rippleUV = uv - vec2(1.5, 0.5);
+        // float d = length(rippleUV);
+        // d = sin(d * 50);
+        // vec2 dir = normalize(rippleUV);
+        // vec2 rippleCoord = uv + d * dir * 0.05;
+        // color = texture2D(diffuse, rippleCoord).xyz;
+
+        
+
+    }
+
+    gl_FragColor = vec4(color, 1); 
 }
