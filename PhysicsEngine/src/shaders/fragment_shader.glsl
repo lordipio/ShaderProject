@@ -250,8 +250,7 @@ float SDFCircle(vec2 pixelCoord, float radius, vec2 pos)
 
 void main()
 {
-    vec2 uv = vec2(vUV.x, 1 - vUV.y);
-    uv = vec2(2, 1) * uv;
+    vec2 uv = vec2(vUV.x * 2, 1 - vUV.y);
     vec3 color = texture2D(diffuse, uv).xyz;
 
     if (uv.x > 1.0)
@@ -294,6 +293,26 @@ void main()
         vec2 pixelatedUV = vec2(fract(vUV.x * 2), 1 - vUV.y);
         pixelatedUV = floor(pixelatedUV * gridSize) / gridSize;
         color = texture2D(diffuse, pixelatedUV).xyz;
+
+
+        // Distortion
+        // vec2 pushedCoord = uv;
+        // float pushedSign = sign(uv.y - 0.5);
+        // color = vec3(pushedSign);
+        // pushedCoord.y = pushedSign * pow(abs(pushedCoord.y - 0.5) * 2.0, 0.7) * 0.5 + 0.5;
+        // color = texture2D(diffuse, pushedCoord).xyz;
+
+        
+        // Ripple
+        // vec2 rippleUV = uv - vec2(1.5, 0.5);
+        // float d = length(rippleUV);
+        // d = sin(d * 50);
+        // vec2 dir = normalize(rippleUV);
+        // vec2 rippleCoord = uv + d * dir * 0.05;
+        // color = texture2D(diffuse, rippleCoord).xyz;
+
+        
+
     }
 
     gl_FragColor = vec4(color, 1); 
